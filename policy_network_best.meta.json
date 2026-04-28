@@ -1,0 +1,10 @@
+{
+  "k": 9,
+  "input_size": 13,
+  "hidden_size": 96,
+  "num_actions": 4,
+  "max_steps": 200,
+  "seed": 42,
+  "best_epoch": 52,
+  "best_distance": 0.6621536125100185
+}
