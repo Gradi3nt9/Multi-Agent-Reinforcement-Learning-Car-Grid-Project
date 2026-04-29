@@ -225,23 +225,23 @@ class CarEnv:
         return self._get_state(), frame_distance, done, info
 
 
-def shape_reward(raw_reward: float, info: Dict, next_state: np.ndarray) -> float:
-    """Shaped reward for training (evaluation still uses raw distance)."""
-    # Base: scaled distance traveled this frame.
+def shape_reward(raw_reward: float, info: Dict, next_state: np.ndarray, action: int) -> float:
+    # 1. IMMEDIATE CRASH PENALTY (Overrides everything else)
+    # If the car crashes, it gets a massive penalty and earns NO distance or speed points.
+    if info["crashed"]:
+        return -5.0  
+
+    # 2. Base distance reward (slightly lowered so it doesn't overpower survival)
     reward = 10.0 * raw_reward
 
-    # Crash penalty: crashes tank speed to 12.5%, hurting future distance.
-    if info["crashed"]:
-        reward -= 0.5
-
-    # Speed bonus: higher speed = more distance over time.
+    # 3. Speed bonus (Only awarded if the car is currently safe)
     reward += 2.0 * info["speed"]
 
-    # Wall proximity warning: discourage getting close to walls.
+    # 4. Proximity Warning: Sharper penalty when getting close to walls
     sensors = next_state[4:]
     min_sensor = float(np.min(sensors))
-    if min_sensor < 0.15:
-        reward -= 0.1 * (0.15 - min_sensor) / 0.15
+    if min_sensor < 0.20:
+        reward -= 1.0 * (0.20 - min_sensor) / 0.20
 
     return float(reward)
 
@@ -275,7 +275,7 @@ def generate_trajectory(
             value = value_net(state_tensor)
 
         next_state, raw_reward, done, info = env.step(action)
-        reward = shape_reward(raw_reward, info, next_state)
+        reward = shape_reward(raw_reward, info, next_state, action)
 
         trajectory.append({
             "state": state.copy(),
@@ -735,8 +735,8 @@ def train_policy(
 
     gamma = 0.99
     lam = 0.95
-    init_entropy_coef = 0.02
-    min_entropy_coef = 0.002
+    init_entropy_coef = 0.10
+    min_entropy_coef = 0.01
     entropy_decay = 0.995
     init_temperature = 1.0
     min_temperature = 1.0
